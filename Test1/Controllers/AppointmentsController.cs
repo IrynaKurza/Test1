@@ -29,9 +29,9 @@ namespace Test1.Controllers
             {
                 return NotFound(e.Message);
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                return StatusCode(500, $"Internal server error: {e.Message}");
+                return StatusCode(500, "An unexpected error occurred.");
             }
         }
 
@@ -56,9 +56,9 @@ namespace Test1.Controllers
             {
                 return NotFound(e.Message);
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                return StatusCode(500, $"Internal server error: {e.Message}");
+                return StatusCode(500, "An unexpected error occurred.");
             }
         }
     }
