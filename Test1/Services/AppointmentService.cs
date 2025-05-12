@@ -76,53 +76,70 @@ public class AppointmentService : IAppointmentService
 
         try
         {
+            // check if appointment with the given ID already exists
             var checkCmd = new SqlCommand("SELECT 1 FROM appointment WHERE appointment_id = @id", conn, (SqlTransaction)transaction);
             checkCmd.Parameters.AddWithValue("@id", dto.AppointmentId);
+            
             if (await checkCmd.ExecuteScalarAsync() is not null)
                 throw new ConflictException("Appointment already exists");
-
+            
+            // check if the patient exists
             var checkPatient = new SqlCommand("SELECT 1 FROM patient WHERE patient_id = @id", conn, (SqlTransaction)transaction);
             checkPatient.Parameters.AddWithValue("@id", dto.PatientId);
+            
             if (await checkPatient.ExecuteScalarAsync() is null)
                 throw new NotFoundException("Patient not found");
 
+            // check if the doctor exists (via PWZ)
             var getDoctorId = new SqlCommand("SELECT doctor_id FROM doctor WHERE PWZ = @pwz", conn, (SqlTransaction)transaction);
             getDoctorId.Parameters.AddWithValue("@pwz", dto.Pwz);
             var doctorIdObj = await getDoctorId.ExecuteScalarAsync();
+            
             if (doctorIdObj is null)
                 throw new NotFoundException("Doctor not found");
+            
             int doctorId = (int)doctorIdObj;
 
+            // insert the new appointment into the database
             var insertAppointment = new SqlCommand(@"
                 INSERT INTO appointment (appointment_id, patient_id, doctor_id, date)
                 VALUES (@id, @patientId, @doctorId, GETDATE())", conn, (SqlTransaction)transaction);
+            
             insertAppointment.Parameters.AddWithValue("@id", dto.AppointmentId);
             insertAppointment.Parameters.AddWithValue("@patientId", dto.PatientId);
             insertAppointment.Parameters.AddWithValue("@doctorId", doctorId);
             await insertAppointment.ExecuteNonQueryAsync();
 
+            // for each service
             foreach (var service in dto.Services)
             {
+                // check if the service exists
                 var getServiceId = new SqlCommand("SELECT service_id FROM service WHERE name = @name", conn, (SqlTransaction)transaction);
                 getServiceId.Parameters.AddWithValue("@name", service.ServiceName);
                 var serviceIdObj = await getServiceId.ExecuteScalarAsync();
+                
                 if (serviceIdObj is null)
                     throw new NotFoundException($"Service '{service.ServiceName}' not found");
+                
                 int serviceId = (int)serviceIdObj;
 
+                // insert the appointment and service entry along with the fee
                 var insertService = new SqlCommand(@"
                     INSERT INTO appointment_service (appointment_id, service_id, service_fee)
                     VALUES (@aid, @sid, @fee)", conn, (SqlTransaction)transaction);
+                
                 insertService.Parameters.AddWithValue("@aid", dto.AppointmentId);
                 insertService.Parameters.AddWithValue("@sid", serviceId);
                 insertService.Parameters.AddWithValue("@fee", service.ServiceFee);
                 await insertService.ExecuteNonQueryAsync();
             }
 
+            // commit transaction if successful
             await transaction.CommitAsync();
         }
         catch
         {
+            // rollback transaction otherwise
             await transaction.RollbackAsync();
             throw;
         }
