@@ -15,35 +15,38 @@ namespace Test1.Controllers
         {
             _appointmentService = appointmentService;
         }
-        
 
-        // GET /api/appointments/{id}
+        // GET api/appointments/{id}
         [HttpGet("{id:int}")]
-        public async Task<IActionResult> GetById(int id)
+        public async Task<IActionResult> GetAppointmentById(int id)
         {
             try
             {
-                var result = await _appointmentService.GetByIdAsync(id);
+                var result = await _appointmentService.GetAppointmentByIdAsync(id);
                 return Ok(result);
             }
             catch (NotFoundException e)
             {
                 return NotFound(e.Message);
             }
+            catch (Exception e)
+            {
+                return StatusCode(500, $"Internal server error: {e.Message}");
+            }
         }
 
         
-        // POST /api/appointments
+        // POST api/appointments
         [HttpPost]
-        public async Task<IActionResult> Create([FromBody] NewAppointmentDto dto)
+        public async Task<IActionResult> CreateAppointment([FromBody] NewAppointmentDto dto)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
             try
             {
-                var id = await _appointmentService.CreateAsync(dto);
-                return CreatedAtAction(nameof(GetById), new { id }, dto);
+                await _appointmentService.CreateAppointmentAsync(dto);
+                return Created($"/api/appointments/{dto.AppointmentId}", null);
             }
             catch (ConflictException e)
             {
@@ -53,7 +56,10 @@ namespace Test1.Controllers
             {
                 return NotFound(e.Message);
             }
+            catch (Exception e)
+            {
+                return StatusCode(500, $"Internal server error: {e.Message}");
+            }
         }
-        
     }
 }
